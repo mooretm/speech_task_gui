@@ -209,14 +209,7 @@ myFont = font.nametofont('TkDefaultFont').configure(size=10)
 options = {'padx':10, 'pady':10}
 options_word = {'padx':0, 'pady':0}
 
-def next():
-    #status.set("Presenting...")
-    status.set(str(expInfo['subject']))
-
 # Frames for widget positioning
-frmParams = ttk.LabelFrame(root, text="Parameters")
-frmParams.grid(column=3, row=0, rowspan=3, sticky='nw',**options)
-
 frmStatus = ttk.Frame(root)
 frmStatus.grid(column=0, columnspan=2, row=0, **options)
 
@@ -232,6 +225,12 @@ frmScore.grid(column=0, columnspan=2, row=2, sticky="W")
 sep = ttk.Separator(root, orient='vertical')
 sep.grid(column=2, row=0, rowspan=12, sticky='ns')
 
+frmParams = ttk.LabelFrame(root, text="Parameters")
+frmParams.grid(column=3, row=0, rowspan=2, sticky='nw',**options)
+
+frmTrials = ttk.Frame(root)
+frmTrials.grid(column=3, row=2, sticky='w',  **options)
+
 
 def params_list():
     keys = list(expInfo.keys())
@@ -244,41 +243,17 @@ def params_list():
 
 params_list()
 
+lblTrial = ttk.Label(frmTrials, text='Trial 0 of 0')
+lblTrial.grid(column=0, row=0)
+
 status = tk.StringVar()
 status.set("Ready")
-lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=2, relief="groove")
-lblStatus.config(font=('TkDefaultFont', 15))
+lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=1, relief="groove")
+lblStatus.config(font=('TkDefaultFont', 14))
 lblStatus.grid(column=0, row=0, sticky="N", ipadx=5, ipady=5)
 
 
-score = tk.StringVar()
-score.set(f'0 of 0 = 0% correct')
-lblScore = ttk.Label(frmScore, textvariable=score, font=myFont) # padding=10
-lblScore.grid(column=0, row=0, sticky="W", **options)
-
 # Words
-"""
-theText = ''.join(sentences[3])
-words = theText.split()
-vals = np.zeros(len(words),dtype=int)
-chkbox_dict = dict(zip(words,vals))
-for counter, key in enumerate(chkbox_dict,start=0):
-    chkbox_dict[key] = tk.IntVar()
-    print(key)
-    if key.isupper() and key != 'A':
-        theWords = ttk.Label(frmSentence,text=words[counter])
-        theWords.config(font=('TkDefaultFont 10 underline'))
-        theWords.grid(column=counter,row=0)
-        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
-        aCheckButton.grid(column=counter,row=1)
-        print(f'Key word - {words[counter]}: {counter}')
-    else:
-        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
-        #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
-        theWords = ttk.Label(frmSentence,text=words[counter]).grid(column=counter,row=0)
-        print(f'Non-keyword: {counter}')
-"""
-
 # Process current sentence for presentation
 # and scoring.
 theText = ''.join(sentences[3]) # ['the dog is fast']
@@ -310,10 +285,13 @@ for counter, key in enumerate(chkbox_dict,start=0):
 global cor_count
 cor_count = 0
 
+global incor_count
+incor_count = 0
+
 theScores = []
 def score():
     global cor_count
-    cor_count = cor_count
+    global incor_count
     theScores = []
     for key, value in chkbox_dict.items():
         state = value.get()
@@ -326,23 +304,27 @@ def score():
                 print('Wrong! ' + key[:-1])
                 theScores.append(0)
                 chkbox_dict[key].set(0)
+    # Mark correct or incorrect
+    # Criterion: all keywords must have been correctly identified
     if all(ele > 0 for ele in theScores):
         cor_count += 1
-        try:
-            percent_cor = cor_count/total_count*100
-        except:
-            percent_cor = 0
-        score.set(f'{cor_count} of {total_count} = {percent_cor}% correct')
-    # Score label
-    total_count = len(sentences)
+    else:
+        incor_count += 1
+
+    total_count = cor_count + incor_count
     try:
         percent_cor = cor_count/total_count*100
     except:
         percent_cor = 0
+    score_text.set(f'{cor_count} of {total_count} = {round(percent_cor,1)}% correct')
+    lblTrial.config(text=f'Trial {total_count} of 20')
     print(theScores)
 
 
-
+score_text = tk.StringVar()
+lblScore = ttk.Label(frmScore, textvariable=score_text, font=myFont) # padding=10
+lblScore.grid(column=0, row=0, sticky="W", **options)
+score_text.set('No data!')
 
 # Button
 btnNext = ttk.Button(frmBtn, text="Next", command=score)
@@ -353,12 +335,10 @@ btnNext.grid(column=0, row=0, sticky="N")
 # Center root based on new size
 root.update_idletasks()
 #root.attributes('-topmost',1)
-
 window_width = root.winfo_width()
 window_height = root.winfo_height()
 #window_width = 700
 #window_height=300
-
 # get the screen dimension
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
