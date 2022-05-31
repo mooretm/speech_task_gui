@@ -1,29 +1,30 @@
+
+# tk inter imports
+from textwrap import fill
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font
 from tkinter import Menu
 from tkinter.messagebox import askyesno
-
+# system type imports
 import os
 import csv
 from datetime import datetime
-
+# data science imports
 import numpy as np
 import pandas as pd
-
+# audio imports
 from scipy.io import wavfile
 import sounddevice as sd
 
-
+# Initialize root window
 root = tk.Tk()
 root.title("Speech Task Controller")
 root.withdraw()
 
-
 #######################################
 #### FOLDER AND STARTUP MANAGEMENT ####
 #######################################
-
 # Ensure that relative paths start from the same directory as this script
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
@@ -51,14 +52,20 @@ def params_manager():
         expInfo = expInfo[1] # to_dict returns a list
     except:
         print('Using default dictionary')
-        expInfo = {'subject':'999', 'condition':'SPIN', 'speaker':3, 'level':65.0}
+        expInfo = {'subject':'999', 'condition':'SPIN', 'speaker':3, 'level':65.0, 'lists':'1 2'}
 
     # Get current date/time
     now = datetime.now()
     expInfo['stamp'] = now.strftime("%Y_%b_%d_%H%M")
 
+# Create expInfo dictionary
 params_manager()
 
+# Pull in text sentences
+df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
+lists = expInfo['lists'].split()
+lists = [int(x) for x in lists]
+sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
 
 
 def startup_win():
@@ -111,6 +118,7 @@ def startup_win():
                 writer = csv.writer(f)
                 writer.writerow([keys[idx], entry.get()])
         params_manager()
+        params_list()
         winStartParams.destroy()
 
     # Save button
@@ -123,7 +131,7 @@ def startup_win():
     ttk.Button(frmStartup2,text="Cancel",command=lambda: winStartParams.destroy()).grid(column=1,
         row=len(expInfo)+1)
 
-    # Center root based on new size
+    # Center winStartParams  based on new size
     winStartParams.update_idletasks()
     #root.attributes('-topmost',1)
     window_width = winStartParams.winfo_width()
@@ -196,80 +204,161 @@ menubar.add_cascade(
 #root.columnconfigure([0,1], weight=1)
 #root.rowconfigure([0,1,2], weight=1)
 
-myFont = font.nametofont('TkDefaultFont').configure(size=16)
+myFont = font.nametofont('TkDefaultFont').configure(size=10)
 
-options = {'padx':15, 'pady':15}
-options_word = {'padx':5, 'pady':5}
+options = {'padx':10, 'pady':10}
+options_word = {'padx':0, 'pady':0}
 
 def next():
     #status.set("Presenting...")
     status.set(str(expInfo['subject']))
 
-frmStatus = ttk.Frame(root) # padding=10
+# Frames for widget positioning
+frmParams = ttk.LabelFrame(root, text="Parameters")
+frmParams.grid(column=3, row=0, rowspan=3, sticky='nw',**options)
+
+frmStatus = ttk.Frame(root)
 frmStatus.grid(column=0, columnspan=2, row=0, **options)
 
-frmSentence = ttk.LabelFrame(root, text='Sentence:') # padding=10
-frmSentence.grid(column=0, row=1, **options)
+frmSentence = ttk.LabelFrame(root, text='Sentence:')
+frmSentence.grid(column=0, row=1, sticky='w', **options)
+
+frmBtn = ttk.Frame(root)
+frmBtn.grid(column=1, row=1, sticky="S", **options)
 
 frmScore = ttk.Frame(root)
 frmScore.grid(column=0, columnspan=2, row=2, sticky="W")
 
-frmBtn = ttk.Frame(root) # padding=10
-frmBtn.grid(column=1, row=1, sticky="S", **options)
+sep = ttk.Separator(root, orient='vertical')
+sep.grid(column=2, row=0, rowspan=12, sticky='ns')
 
+
+def params_list():
+    keys = list(expInfo.keys())
+    for idx, param in enumerate(expInfo):
+        if param == 'stamp':
+            pass
+        else:
+            lblLabel = ttk.Label(frmParams, text=keys[idx].capitalize() + ': ' + str(expInfo[param]))
+            lblLabel.grid(column=0, row=idx, sticky='w')
+
+params_list()
 
 status = tk.StringVar()
 status.set("Ready")
 lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=2, relief="groove")
-lblStatus.config(font=('TkDefaultFont', 30))
-lblStatus.grid(column=0, row=0, sticky="N", ipadx=10, ipady=10, **options)
+lblStatus.config(font=('TkDefaultFont', 15))
+lblStatus.grid(column=0, row=0, sticky="N", ipadx=5, ipady=5)
+
+
+score = tk.StringVar()
+score.set(f'0 of 0 = 0% correct')
+lblScore = ttk.Label(frmScore, textvariable=score, font=myFont) # padding=10
+lblScore.grid(column=0, row=0, sticky="W", **options)
 
 # Words
-lblWord1 = ttk.Label(frmSentence, text="word1")
-lblWord1.grid(column=0, row=1, sticky="N", **options_word)
+"""
+theText = ''.join(sentences[3])
+words = theText.split()
+vals = np.zeros(len(words),dtype=int)
+chkbox_dict = dict(zip(words,vals))
+for counter, key in enumerate(chkbox_dict,start=0):
+    chkbox_dict[key] = tk.IntVar()
+    print(key)
+    if key.isupper() and key != 'A':
+        theWords = ttk.Label(frmSentence,text=words[counter])
+        theWords.config(font=('TkDefaultFont 10 underline'))
+        theWords.grid(column=counter,row=0)
+        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
+        aCheckButton.grid(column=counter,row=1)
+        print(f'Key word - {words[counter]}: {counter}')
+    else:
+        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
+        #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
+        theWords = ttk.Label(frmSentence,text=words[counter]).grid(column=counter,row=0)
+        print(f'Non-keyword: {counter}')
+"""
 
-lblWord2 = ttk.Label(frmSentence, text="word2")
-lblWord2.grid(column=1, row=1, sticky="N", **options_word)
+# Process current sentence for presentation
+# and scoring.
+theText = ''.join(sentences[3]) # ['the dog is fast']
+words = theText.split() # ['the' 'dog' 'is' 'fast']
+nums = np.arange(0,len(words)) # index to ensure each word is a unique key
+nums = [str(x) for x in nums] # turn into strings
+# Append nums to words to ensure each word is a unique dict key
+newWords = []
+for i, word in enumerate(words):
+    word = word + str(i)
+    newWords.append(word)
+# Prepopulate checkboxes to "off"
+vals = np.zeros(len(words),dtype=int)
+chkbox_dict = dict(zip(newWords,vals))
+# Instantiate and display words and checkboxes
+for counter, key in enumerate(chkbox_dict,start=0):
+    chkbox_dict[key] = tk.IntVar()
+    if key.isupper() and key != 'A':
+        theWords = ttk.Label(frmSentence,text=newWords[counter][:-1])
+        theWords.config(font=('TkDefaultFont 10 underline'))
+        theWords.grid(column=counter,row=0)
+        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
+        aCheckButton.grid(column=counter,row=1)
+    else:
+        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
+        #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
+        theWords = ttk.Label(frmSentence,text=newWords[counter][:-1]).grid(column=counter,row=0)
 
-lblWord3 = ttk.Label(frmSentence, text="word3")
-lblWord3.grid(column=2, row=1, sticky="N", **options_word)
+global cor_count
+cor_count = 0
+
+theScores = []
+def score():
+    global cor_count
+    cor_count = cor_count
+    theScores = []
+    for key, value in chkbox_dict.items():
+        state = value.get()
+        if state != 0:
+            print('Correct! ' + key[:-1])
+            theScores.append(1)
+            chkbox_dict[key].set(0)
+        else:
+            if key.isupper() and key != 'A':
+                print('Wrong! ' + key[:-1])
+                theScores.append(0)
+                chkbox_dict[key].set(0)
+    if all(ele > 0 for ele in theScores):
+        cor_count += 1
+        try:
+            percent_cor = cor_count/total_count*100
+        except:
+            percent_cor = 0
+        score.set(f'{cor_count} of {total_count} = {percent_cor}% correct')
+    # Score label
+    total_count = len(sentences)
+    try:
+        percent_cor = cor_count/total_count*100
+    except:
+        percent_cor = 0
+    print(theScores)
 
 
-# Checkbutton
-chk1 = tk.StringVar(value=0)
-chkWord1 = ttk.Checkbutton(frmSentence, text='', takefocus=0, variable=chk1)
-chkWord1.grid(column=0, row=2, **options_word)
-
-chk3 = tk.StringVar(value=0)
-chkWord3 = ttk.Checkbutton(frmSentence, text='', takefocus=0, variable=chk3)
-chkWord3.grid(column=2, row=2, **options_word)
-
-
-# Score label
-correct = 0
-total= 0
-try:
-    percent_cor = correct/total*100
-except:
-    percent_cor = 0
-score = tk.StringVar()
-score.set(f'{correct} of {total} = {percent_cor}% correct')
-lblScore = ttk.Label(frmScore, textvariable=score) # padding=10
-lblScore.grid(column=0, row=0, sticky="W", **options)
 
 
 # Button
-btnNext = ttk.Button(frmBtn, text="Next", command=next)
+btnNext = ttk.Button(frmBtn, text="Next", command=score)
 btnNext.grid(column=0, row=0, sticky="N")
-
 
 
 
 # Center root based on new size
 root.update_idletasks()
 #root.attributes('-topmost',1)
+
 window_width = root.winfo_width()
 window_height = root.winfo_height()
+#window_width = 700
+#window_height=300
+
 # get the screen dimension
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
@@ -280,7 +369,6 @@ center_y = int(screen_height/2 - window_height / 2)
 root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 root.resizable(False, False)
 root.deiconify()
-
 
 
 
