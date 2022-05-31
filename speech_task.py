@@ -3,42 +3,46 @@ from tkinter import ttk
 from tkinter import font
 from tkinter import Menu
 from tkinter.messagebox import askyesno
+
 import os
 import csv
 from datetime import datetime
+
+import numpy as np
 import pandas as pd
+
+from scipy.io import wavfile
+import sounddevice as sd
 
 
 root = tk.Tk()
-root.title("Presentation Controller")
+root.title("Speech Task Controller")
 root.withdraw()
 
 
+#######################################
+#### FOLDER AND STARTUP MANAGEMENT ####
+#######################################
 
+# Ensure that relative paths start from the same directory as this script
+_thisDir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(_thisDir)
 
-
-
-
-def startup_win():
-    #######################################
-    #### FOLDER AND STARTUP MANAGEMENT ####
-    #######################################
-    # Ensure that relative paths start from the same directory as this script
-    _thisDir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(_thisDir)
-
-    # Check for existing data folder
-    if os.path.isdir(_thisDir + os.sep + 'data' + os.sep):
-        print("Found data folder.")
+# Check for existing data folder
+if os.path.isdir(_thisDir + os.sep + 'data' + os.sep):
+    print("Found data folder.")
+else:
+    print("No data folder found; creating one.")
+    os.mkdir(_thisDir + os.sep + 'data' + os.sep)
+    isdir = os.path.isdir(_thisDir + os.sep + 'data' + os.sep)
+    if isdir:
+        print("Data folder created successfully.")
     else:
-        print("No data folder found; creating one.")
-        os.mkdir(_thisDir + os.sep + 'data' + os.sep)
-        isdir = os.path.isdir(_thisDir + os.sep + 'data' + os.sep)
-        if isdir:
-            print("Data folder created successfully.")
-        else:
-            print("Problem creating data folder.")
+        print("Problem creating data folder.")
 
+
+def params_manager():
+    global expInfo
     # Look for previous parameters file
     try:
         df = pd.read_csv('lastParams.csv',
@@ -47,16 +51,21 @@ def startup_win():
         expInfo = expInfo[1] # to_dict returns a list
     except:
         print('Using default dictionary')
-        expInfo = {'Subject':'999', 'Condition':'SPIN', 'Speaker':3, 'Level':65.0}
+        expInfo = {'subject':'999', 'condition':'SPIN', 'speaker':3, 'level':65.0}
 
     # Get current date/time
     now = datetime.now()
     expInfo['stamp'] = now.strftime("%Y_%b_%d_%H%M")
 
+params_manager()
 
+
+
+def startup_win():
     ###########################
     #### BEGIN TKINTER GUI ####
     ###########################
+    global expInfo
     # Make root window
     winStartParams = tk.Tk()
     winStartParams.title('Session Parameters')
@@ -72,6 +81,8 @@ def startup_win():
     frmStartup2.grid(column=0,row=1,sticky='NSEW', padx=10, pady=10)
     frmStartup2.columnconfigure(0, weight=1)
     frmStartup2.rowconfigure(0, weight=1)
+
+    params_manager()
 
     # Create labels and entries for startup params
     # Values filled from params file or default dict
@@ -99,6 +110,7 @@ def startup_win():
                 print(entry.get())
                 writer = csv.writer(f)
                 writer.writerow([keys[idx], entry.get()])
+        params_manager()
         winStartParams.destroy()
 
     # Save button
@@ -129,7 +141,9 @@ def startup_win():
 
     winStartParams.mainloop()
 
-
+###############
+#### BEGIN ####
+###############
 # Menu
 def confirm_exit():
     answer = askyesno(title='Really?',
@@ -188,7 +202,8 @@ options = {'padx':15, 'pady':15}
 options_word = {'padx':5, 'pady':5}
 
 def next():
-    status.set("Presenting...")
+    #status.set("Presenting...")
+    status.set(str(expInfo['subject']))
 
 frmStatus = ttk.Frame(root) # padding=10
 frmStatus.grid(column=0, columnspan=2, row=0, **options)
