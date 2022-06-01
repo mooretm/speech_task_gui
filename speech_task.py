@@ -1,4 +1,3 @@
-
 # tk inter imports
 from textwrap import fill
 import tkinter as tk
@@ -61,11 +60,61 @@ def params_manager():
 # Create expInfo dictionary
 params_manager()
 
+global list_counter
+list_counter = 0
+
 # Pull in text sentences
-df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
-lists = expInfo['lists'].split()
-lists = [int(x) for x in lists]
-sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
+global sentences
+global sentences_list
+def get_sentences():
+    global sentences
+    global sentences_list
+    df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
+    lists = expInfo['lists'].split()
+    lists = [int(x) for x in lists]
+    print(lists)
+    sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
+    sentences_list = list(sentences)
+
+get_sentences()
+
+
+myFont = font.nametofont('TkDefaultFont').configure(size=10)
+
+options = {'padx':10, 'pady':10}
+options_word = {'padx':0, 'pady':0}
+
+# Frames for widget positioning
+frmStatus = ttk.Frame(root)
+frmStatus.grid(column=0, columnspan=2, row=0, **options)
+
+frmSentence = ttk.LabelFrame(root, text='Sentence:')
+frmSentence.grid(column=0, row=1, sticky='w', **options)
+
+frmBtn = ttk.Frame(root)
+frmBtn.grid(column=1, row=1, sticky="S", **options)
+
+frmScore = ttk.Frame(root)
+frmScore.grid(column=0, columnspan=2, row=2, sticky="W")
+
+sep = ttk.Separator(root, orient='vertical')
+sep.grid(column=2, row=0, rowspan=12, sticky='ns')
+
+frmParams = ttk.LabelFrame(root, text="Parameters")
+frmParams.grid(column=3, row=0, rowspan=2, sticky='nw',**options)
+
+frmTrials = ttk.Frame(root)
+frmTrials.grid(column=3, row=2, sticky='w',  **options)
+
+def params_list():
+    keys = list(expInfo.keys())
+    print(keys)
+    for idx, param in enumerate(expInfo):
+        if param == 'stamp':
+            pass
+        else:
+            lblLabel = ttk.Label(frmParams, text=keys[idx].capitalize() + ': ' + str(expInfo[param]))
+            lblLabel.grid(column=0, row=idx, sticky='w')
 
 
 def startup_win():
@@ -73,6 +122,7 @@ def startup_win():
     #### BEGIN TKINTER GUI ####
     ###########################
     global expInfo
+    global sentences
     # Make root window
     winStartParams = tk.Tk()
     winStartParams.title('Session Parameters')
@@ -88,8 +138,6 @@ def startup_win():
     frmStartup2.grid(column=0,row=1,sticky='NSEW', padx=10, pady=10)
     frmStartup2.columnconfigure(0, weight=1)
     frmStartup2.rowconfigure(0, weight=1)
-
-    params_manager()
 
     # Create labels and entries for startup params
     # Values filled from params file or default dict
@@ -109,6 +157,7 @@ def startup_win():
 
     # Write startup params to lastParams.csv
     def startup_params():
+        global sentences
         """ Collect param values and write to file.
         """
         keys = list(expInfo.keys())
@@ -119,6 +168,9 @@ def startup_win():
                 writer.writerow([keys[idx], entry.get()])
         params_manager()
         params_list()
+
+        # Pull in text sentences
+        get_sentences()
         winStartParams.destroy()
 
     # Save button
@@ -148,6 +200,7 @@ def startup_win():
     winStartParams.deiconify()
 
     winStartParams.mainloop()
+
 
 ###############
 #### BEGIN ####
@@ -204,43 +257,6 @@ menubar.add_cascade(
 #root.columnconfigure([0,1], weight=1)
 #root.rowconfigure([0,1,2], weight=1)
 
-myFont = font.nametofont('TkDefaultFont').configure(size=10)
-
-options = {'padx':10, 'pady':10}
-options_word = {'padx':0, 'pady':0}
-
-# Frames for widget positioning
-frmStatus = ttk.Frame(root)
-frmStatus.grid(column=0, columnspan=2, row=0, **options)
-
-frmSentence = ttk.LabelFrame(root, text='Sentence:')
-frmSentence.grid(column=0, row=1, sticky='w', **options)
-
-frmBtn = ttk.Frame(root)
-frmBtn.grid(column=1, row=1, sticky="S", **options)
-
-frmScore = ttk.Frame(root)
-frmScore.grid(column=0, columnspan=2, row=2, sticky="W")
-
-sep = ttk.Separator(root, orient='vertical')
-sep.grid(column=2, row=0, rowspan=12, sticky='ns')
-
-frmParams = ttk.LabelFrame(root, text="Parameters")
-frmParams.grid(column=3, row=0, rowspan=2, sticky='nw',**options)
-
-frmTrials = ttk.Frame(root)
-frmTrials.grid(column=3, row=2, sticky='w',  **options)
-
-
-def params_list():
-    keys = list(expInfo.keys())
-    for idx, param in enumerate(expInfo):
-        if param == 'stamp':
-            pass
-        else:
-            lblLabel = ttk.Label(frmParams, text=keys[idx].capitalize() + ': ' + str(expInfo[param]))
-            lblLabel.grid(column=0, row=idx, sticky='w')
-
 params_list()
 
 lblTrial = ttk.Label(frmTrials, text='Trial 0 of 0')
@@ -252,11 +268,10 @@ lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10,
 lblStatus.config(font=('TkDefaultFont', 14))
 lblStatus.grid(column=0, row=0, sticky="N", ipadx=5, ipady=5)
 
-
 # Words
 # Process current sentence for presentation
 # and scoring.
-theText = ''.join(sentences[3]) # ['the dog is fast']
+theText = ''.join(sentences_list[list_counter]) # ['the dog is fast']
 words = theText.split() # ['the' 'dog' 'is' 'fast']
 nums = np.arange(0,len(words)) # index to ensure each word is a unique key
 nums = [str(x) for x in nums] # turn into strings
@@ -282,6 +297,7 @@ for counter, key in enumerate(chkbox_dict,start=0):
         #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
         theWords = ttk.Label(frmSentence,text=newWords[counter][:-1]).grid(column=counter,row=0)
 
+
 global cor_count
 cor_count = 0
 
@@ -292,6 +308,7 @@ theScores = []
 def score():
     global cor_count
     global incor_count
+    global list_counter
     theScores = []
     for key, value in chkbox_dict.items():
         state = value.get()
@@ -319,6 +336,7 @@ def score():
     score_text.set(f'{cor_count} of {total_count} = {round(percent_cor,1)}% correct')
     lblTrial.config(text=f'Trial {total_count} of 20')
     print(theScores)
+    list_counter += 1
 
 
 score_text = tk.StringVar()

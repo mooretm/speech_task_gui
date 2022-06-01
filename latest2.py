@@ -7,6 +7,7 @@ from tkinter import Menu
 from tkinter.messagebox import askyesno
 # system type imports
 import os
+import sys
 import csv
 from datetime import datetime
 # data science imports
@@ -15,6 +16,11 @@ import pandas as pd
 # audio imports
 from scipy.io import wavfile
 import sounddevice as sd
+# import my library
+sys.path.append('.\\lib') # Point to custom library file
+import tmsignals as ts # Custom library
+import importlib 
+importlib.reload(ts) # Reload custom module on every run
 
 
 #######################################
@@ -51,14 +57,11 @@ except:
 now = datetime.now()
 expInfo['stamp'] = now.strftime("%Y_%b_%d_%H%M")
 
+
+
+
 global list_counter
 list_counter = 0
-
-
-
-
-
-
 
 
 
@@ -119,7 +122,9 @@ btnSave.focus()
 btnSave.grid(column=0,row=len(expInfo)+1)
 
 # Cancel without saving button
-ttk.Button(frmStartup2,text="Cancel",command=lambda: winStartParams.destroy()).grid(column=1,
+#ttk.Button(frmStartup2,text="Cancel",command=lambda: winStartParams.destroy()).grid(column=1,
+#    row=len(expInfo)+1)
+ttk.Button(frmStartup2,text="Cancel",command=lambda: quit()).grid(column=1,
     row=len(expInfo)+1)
 
 # Center winStartParams  based on new size
@@ -154,17 +159,57 @@ df = pd.read_csv('lastParams.csv',
 expInfo = df.to_dict()
 expInfo = expInfo[1] # to_dict returns a list
 
-# Pull in text sentences
+# Get lists of written sentences
 df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
 lists = expInfo['lists'].split()
 lists = [int(x) for x in lists]
-print(lists)
 sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
-sentences_list = list(sentences)
+#print(sentences)
+
+# make a text file to save data
+dataFile = _thisDir + os.sep + 'data' + os.sep + '%s_%s_%s' % (expInfo['subject'], expInfo['condition'], expInfo['stamp'] + '.csv')
+#dataFile = open(fileName+'.csv', 'w')
+with open(dataFile, 'w') as f:
+    writer = csv.writer(f)
+    writer.writerow(['subject','condition','lists','wrds_wrong','wrds_corr','pc''\n'])
 
 
 
 
+
+
+# Get audio files
+# NOTE: files must be renamed as increasing
+# integer values (e.g., 1, 2, 3...)
+fileList = os.listdir('.\\audio\\IEEE')
+x = [x[:-4] for x in fileList] # strip off '.wav'
+fileList = sorted(x, key = int) # sort strings as int
+fileList = [x+'.wav' for x in fileList] # add '.wav' back
+sentence_nums = df.loc[df['list_num'].isin(lists), 'sentence_num']
+sentence_nums = np.array(sentence_nums)
+#print(sentence_nums)
+fileList = np.array(fileList)
+fileList = fileList[sentence_nums]
+#print(fileList)
+
+
+# # Pull in text sentences
+# df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
+# lists = expInfo['lists'].split()
+# lists = [int(x) for x in lists]
+# sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
+# sentences_list = list(sentences)
+
+# # Pull in audio files
+# fileList = os.listdir('.\\audio\\IEEE')
+# x = [x[:-4] for x in fileList] # strip off '.wav'
+# fileList = sorted(x, key = int) # sort strings as int
+# fileList = [x+'.wav' for x in fileList] # add '.wav' back
+# sentence_nums = df.loc[df['list_num'].isin(lists), 'sentence_num']
+# sentence_nums = np.array(sentence_nums)
+# #print(sentence_nums)
+# fileList = np.array(fileList)
+# fileList = fileList[sentence_nums]
 
 
 
@@ -235,11 +280,12 @@ options_word = {'padx':0, 'pady':0}
 frmStatus = ttk.Frame(root)
 frmStatus.grid(column=0, columnspan=2, row=0, **options)
 
-frmSentence = ttk.LabelFrame(root, text='Sentence:')
-frmSentence.grid(column=0, row=1, sticky='w', **options)
+frmSentence = ttk.LabelFrame(root, text='Sentence:', width=300)
+frmSentence.grid(column=0, row=1, sticky='nsew', **options)
+#frmSentence.grid_propagate(0)
 
 frmBtn = ttk.Frame(root)
-frmBtn.grid(column=1, row=1, sticky="S", **options)
+frmBtn.grid(column=1, row=1, sticky="se", **options)
 
 frmScore = ttk.Frame(root)
 frmScore.grid(column=0, columnspan=2, row=2, sticky="W")
@@ -248,10 +294,10 @@ sep = ttk.Separator(root, orient='vertical')
 sep.grid(column=2, row=0, rowspan=12, sticky='ns')
 
 frmParams = ttk.LabelFrame(root, text="Parameters")
-frmParams.grid(column=3, row=0, rowspan=2, sticky='nw',**options)
+frmParams.grid(column=3, row=0, rowspan=2, sticky='ne',**options)
 
 frmTrials = ttk.Frame(root)
-frmTrials.grid(column=3, row=2, sticky='w',  **options)
+frmTrials.grid(column=3, row=2, sticky='E',  **options)
 
 
 keys = list(expInfo.keys())
@@ -270,11 +316,21 @@ status = tk.StringVar()
 status.set("Ready")
 lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=1, relief="groove")
 lblStatus.config(font=('TkDefaultFont', 14))
-lblStatus.grid(column=0, row=0, sticky="N", ipadx=5, ipady=5)
+lblStatus.grid(column=0, row=0, sticky="n", ipadx=5, ipady=5)
+
 
 # Words
 # Process current sentence for presentation
 # and scoring.
+global words
+global nums
+global newWords
+global vals
+global chkbox_dict
+global theWords
+global aCheckButton
+
+"""
 theText = ''.join(sentences_list[list_counter]) # ['the dog is fast']
 words = theText.split() # ['the' 'dog' 'is' 'fast']
 nums = np.arange(0,len(words)) # index to ensure each word is a unique key
@@ -288,6 +344,10 @@ for i, word in enumerate(words):
 vals = np.zeros(len(words),dtype=int)
 chkbox_dict = dict(zip(newWords,vals))
 # Instantiate and display words and checkboxes
+global list_of_lbls
+global list_of_chkboxes
+list_of_chkboxes = [] # Store boxes in list
+list_of_lbls = [] # Store word labels in list
 for counter, key in enumerate(chkbox_dict,start=0):
     chkbox_dict[key] = tk.IntVar()
     if key.isupper() and key != 'A':
@@ -296,11 +356,15 @@ for counter, key in enumerate(chkbox_dict,start=0):
         theWords.grid(column=counter,row=0)
         aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
         aCheckButton.grid(column=counter,row=1)
+        list_of_chkboxes.append(aCheckButton)
+        list_of_lbls.append(theWords)
     else:
         aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
         #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
         theWords = ttk.Label(frmSentence,text=newWords[counter][:-1]).grid(column=counter,row=0)
-
+        list_of_chkboxes.append(aCheckButton)
+        list_of_lbls.append(theWords)
+"""
 
 global cor_count
 cor_count = 0
@@ -308,39 +372,157 @@ cor_count = 0
 global incor_count
 incor_count = 0
 
+
+
+def play_audio():
+
+    ###### AUDIO
+    audio_path = ('.\\audio\\IEEE\\')
+    myFile = fileList[list_counter]
+    myFilePath = audio_path + myFile
+    #status.set(myFilePath[-7:])
+    [fs, myTarget] = wavfile.read(myFilePath)
+    myTarget = ts.doNormalize(myTarget,48000)
+    myTarget = ts.setRMS(myTarget,-20,eq='n')
+    sigdur = len(myTarget) / fs
+    sd.wait(sigdur)
+    sd.play(myTarget,fs)
+
+
+
 theScores = []
 def score():
+    # Process current sentence for presentation
+    # and scoring.
+    # Embarrassing list of globals...
     global cor_count
     global incor_count
     global list_counter
-    theScores = []
-    for key, value in chkbox_dict.items():
-        state = value.get()
-        if state != 0:
-            print('Correct! ' + key[:-1])
-            theScores.append(1)
-            chkbox_dict[key].set(0)
-        else:
-            if key.isupper() and key != 'A':
-                print('Wrong! ' + key[:-1])
-                theScores.append(0)
-                chkbox_dict[key].set(0)
-    # Mark correct or incorrect
-    # Criterion: all keywords must have been correctly identified
-    if all(ele > 0 for ele in theScores):
-        cor_count += 1
-    else:
-        incor_count += 1
+    global words
+    global nums
+    global newWords
+    global vals
+    global chkbox_dict
+    global theWords
+    global aCheckButton
+    global list_of_lbls
+    global list_of_chkboxes
 
-    total_count = cor_count + incor_count
+    # Try scoring if there has been a response
     try:
-        percent_cor = cor_count/total_count*100
+        print(chkbox_dict)
+        theScores = []
+        words_cor = []
+        words_incor = []
+        for key, value in chkbox_dict.items():
+            state = value.get()
+            if state != 0:
+                print('Correct! ' + key[:-1])
+                theScores.append(1)
+                words_cor.append(key[:-1])
+                chkbox_dict[key].set(0)
+            else:
+                if key.isupper() and key != 'A':
+                    print('Wrong! ' + key[:-1])
+                    theScores.append(0)
+                    words_incor.append(key[:-1])
+                    chkbox_dict[key].set(0)
+
+
+        # Mark correct or incorrect
+        # Criterion: all keywords must have been correctly identified
+        if all(ele > 0 for ele in theScores):
+            cor_count += 1
+        else:
+            incor_count += 1
+
+        total_count = cor_count + incor_count
+        try:
+            percent_cor = cor_count/total_count*100
+        except:
+            percent_cor = 0
+
+        score_text.set(f'{cor_count} of {total_count} = {round(percent_cor,1)}% correct')
+        lblTrial.config(text=f'Trial {total_count} of {len(fileList)}')
+        print(theScores)
+
     except:
-        percent_cor = 0
-    score_text.set(f'{cor_count} of {total_count} = {round(percent_cor,1)}% correct')
-    lblTrial.config(text=f'Trial {total_count} of 20')
-    print(theScores)
-    list_counter += 1
+        pass
+
+    try:
+        list_of_lbls = list(filter(None, list_of_lbls))
+        list_of_chkboxes = list(filter(None, list_of_chkboxes))
+
+        for widget in list_of_chkboxes:
+            widget.destroy()
+
+        for widget in list_of_lbls:
+            widget.destroy()
+
+        list_counter += 1
+    except:
+        pass
+
+    #theText = ''.join(sentences_list[list_counter]) # ['the dog is fast']
+    theText = ''.join(sentences.iloc[list_counter]) # using pandas
+    words = theText.split() # ['the' 'dog' 'is' 'fast']
+    nums = np.arange(0,len(words)) # index to ensure each word is a unique key
+    nums = [str(x) for x in nums] # turn into strings
+    # Append nums to words to ensure each word is a unique dict key
+    newWords = []
+    for i, word in enumerate(words):
+        word = word + str(i)
+        newWords.append(word)
+    # Prepopulate checkboxes to "off"
+    vals = np.zeros(len(words),dtype=int)
+    chkbox_dict = dict(zip(newWords,vals))
+
+    # Instantiate and display words and checkboxes
+    list_of_chkboxes = [] # Store boxes in list
+    list_of_lbls = [] # Store word labels in list
+    for counter, key in enumerate(chkbox_dict,start=0):
+        chkbox_dict[key] = tk.IntVar()
+        if key.isupper() and key[:-1] != 'A': # Have to strip trailing numeral
+            theWords = ttk.Label(frmSentence,text=newWords[counter][:-1])
+            theWords.config(font=('TkDefaultFont 10 underline'))
+            theWords.grid(column=counter,row=0)
+            aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
+            aCheckButton.grid(column=counter,row=1)
+            list_of_chkboxes.append(aCheckButton)
+            list_of_lbls.append(theWords)
+        else:
+            aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
+            #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
+            theWords = ttk.Label(frmSentence,text=newWords[counter][:-1])
+            theWords.grid(column=counter,row=0)
+            #list_of_chkboxes.append(aCheckButton)
+            list_of_lbls.append(theWords)
+
+
+    #btnNext.config(state='disabled')
+    status.set("Presenting...")
+
+    #print("waiting...")
+    #btnNext.wait_variable(wait_var)
+    #print("done waiting")
+
+    # AUDIO WENT HERE
+    play_audio()
+
+
+
+    #dataFile.write('subject,condition,lists,wrds_wrong,wrds_corr,pc\n')
+
+
+    if len(words_cor) + len(words_incor) != 0:
+        with open(dataFile, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
+                            str(expInfo['lists']),str(words_incor), str(words_cor), str(percent_cor)])
+        btnNext.config(state='enabled')
+        status.set("Ready")
+
+        
 
 
 score_text = tk.StringVar()
@@ -348,19 +530,26 @@ lblScore = ttk.Label(frmScore, textvariable=score_text, font=myFont) # padding=1
 lblScore.grid(column=0, row=0, sticky="W", **options)
 score_text.set('No data!')
 
+
 # Button
-btnNext = ttk.Button(frmBtn, text="Next", command=score)
+wait_var = tk.IntVar()
+btnNext = ttk.Button(frmBtn, text="Next", command=lambda: [score(), wait_var.set(1)])
 btnNext.grid(column=0, row=0, sticky="N")
 
 
+#def enable_btn():
+#    btnNext.config(state='enabled')
+#    status.set("Ready")
+#btnScore = ttk.Button(frmBtn, text="Score", command=wait_var.set(0))
+#btnScore.grid(column=0, row=1)
 
 # Center root based on new size
 root.update_idletasks()
 #root.attributes('-topmost',1)
 window_width = root.winfo_width()
 window_height = root.winfo_height()
-#window_width = 700
-#window_height=300
+#window_width = 600
+#window_height=200
 # get the screen dimension
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
