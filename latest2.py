@@ -1,6 +1,4 @@
 # tk inter imports
-import imghdr
-from textwrap import fill
 import tkinter as tk
 from tkinter import Toplevel, ttk
 from tkinter import font
@@ -171,10 +169,9 @@ winStartParams.deiconify()
 winStartParams.mainloop()
 
 
-#########################
-#### READ/WRITE VALUES ## 
-#### BEFORE MAIN ########
-#########################
+#######################################
+#### READ/WRITE VALUES BEFORE MAIN #### 
+#######################################
 # Reread expInfo to get updated values 
 # entered in startup window
 df = pd.read_csv('lastParams.csv',
@@ -332,12 +329,6 @@ def mnuCalibrate():
     cal_win.mainloop()
 
 
-##########################################
-#### READ CALIBRATION VALUE FROM FILE ####
-##########################################
-
-
-
 def mnuAbout2():
     showinfo(
         title='About Speech Task Controller',
@@ -478,10 +469,8 @@ lblScore = ttk.Label(frmScore, textvariable=score_text, font=myFont) # padding=1
 lblScore.grid(column=0, row=0, sticky="e", **options)
 score_text.set('0 of 0 = 0.0% correct')
 
-
 # Words
-# Process current sentence for presentation
-# and scoring.
+# Process current sentence for presentation and scoring.
 def play_audio():
     """ Presents current audio file.
     """
@@ -568,8 +557,16 @@ def score():
     except:
         pass
 
-    #theText = ''.join(sentences_list[list_counter]) # ['the dog is fast']
-    theText = ''.join(sentences.iloc[list_counter]) # using pandas
+    #### Text and checkbox display ####
+    if list_counter > len(sentences)-1:
+        with open(dataFile, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
+                str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
+        showinfo(title='All done!', message="Task complete!\nFinal score: " + str(percent_cor) + "%")
+        quit()
+
+    theText = ''.join(sentences.iloc[list_counter]) # using pandas, ['the dog is fast']
     words = theText.split() # ['the' 'dog' 'is' 'fast']
     nums = np.arange(0,len(words)) # index to ensure each word is a unique key
     nums = [str(x) for x in nums] # turn into strings
@@ -613,7 +610,6 @@ def score():
                             str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
     except:
         pass
-
 
 # Button
 wait_var = tk.IntVar()
