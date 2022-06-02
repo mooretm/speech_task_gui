@@ -58,17 +58,17 @@ now = datetime.now()
 expInfo['stamp'] = now.strftime("%Y_%b_%d_%H%M")
 
 
-
-
+#####################
+#### GLOBAL VARS ####
+#####################
+# Increment sentence/audio numbers
 global list_counter
 list_counter = 0
 
 
-
-#def startup_win():
-###########################
-#### BEGIN TKINTER GUI ####
-###########################
+#########################
+#### STARTUP WINDOW  ####
+#########################
 # Make params window
 winStartParams = tk.Tk()
 winStartParams.title('Session Parameters')
@@ -109,7 +109,7 @@ def startup_params():
     keys = list(expInfo.keys())
     with open('lastParams.csv', 'w', newline='') as f:
         for idx, entry in enumerate(entries):
-            print(entry.get())
+            #print(entry.get())
             writer = csv.writer(f)
             writer.writerow([keys[idx], entry.get()])
 
@@ -122,8 +122,6 @@ btnSave.focus()
 btnSave.grid(column=0,row=len(expInfo)+1)
 
 # Cancel without saving button
-#ttk.Button(frmStartup2,text="Cancel",command=lambda: winStartParams.destroy()).grid(column=1,
-#    row=len(expInfo)+1)
 ttk.Button(frmStartup2,text="Cancel",command=lambda: quit()).grid(column=1,
     row=len(expInfo)+1)
 
@@ -146,37 +144,25 @@ winStartParams.deiconify()
 winStartParams.mainloop()
 
 
-
-
-
-
-
-
-
-# Reread expInfo for main window
+#########################
+#### READ/WRITE VALUES ## 
+#### BEFORE MAIN ########
+#########################
+# Reread expInfo to get updated values 
+# entered in startup window
 df = pd.read_csv('lastParams.csv',
     header=None, index_col=0)
 expInfo = df.to_dict()
 expInfo = expInfo[1] # to_dict returns a list
 
 # Get lists of written sentences
+# based on values entered in startup
+# window
 df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
 lists = expInfo['lists'].split()
 lists = [int(x) for x in lists]
 sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
 #print(sentences)
-
-# make a text file to save data
-dataFile = _thisDir + os.sep + 'data' + os.sep + '%s_%s_%s' % (expInfo['subject'], expInfo['condition'], expInfo['stamp'] + '.csv')
-#dataFile = open(fileName+'.csv', 'w')
-with open(dataFile, 'w') as f:
-    writer = csv.writer(f)
-    writer.writerow(['subject','condition','lists','wrds_wrong','wrds_corr','pc''\n'])
-
-
-
-
-
 
 # Get audio files
 # NOTE: files must be renamed as increasing
@@ -187,36 +173,20 @@ fileList = sorted(x, key = int) # sort strings as int
 fileList = [x+'.wav' for x in fileList] # add '.wav' back
 sentence_nums = df.loc[df['list_num'].isin(lists), 'sentence_num']
 sentence_nums = np.array(sentence_nums)
-#print(sentence_nums)
 fileList = np.array(fileList)
 fileList = fileList[sentence_nums]
 #print(fileList)
 
-
-# # Pull in text sentences
-# df = pd.read_csv('.\\sentences\\IEEE-DF.csv')
-# lists = expInfo['lists'].split()
-# lists = [int(x) for x in lists]
-# sentences = df.loc[df['list_num'].isin(lists), 'ieee_text']
-# sentences_list = list(sentences)
-
-# # Pull in audio files
-# fileList = os.listdir('.\\audio\\IEEE')
-# x = [x[:-4] for x in fileList] # strip off '.wav'
-# fileList = sorted(x, key = int) # sort strings as int
-# fileList = [x+'.wav' for x in fileList] # add '.wav' back
-# sentence_nums = df.loc[df['list_num'].isin(lists), 'sentence_num']
-# sentence_nums = np.array(sentence_nums)
-# #print(sentence_nums)
-# fileList = np.array(fileList)
-# fileList = fileList[sentence_nums]
+# make a text file to save data
+dataFile = _thisDir + os.sep + 'data' + os.sep + '%s_%s_%s' % (expInfo['subject'], expInfo['condition'], expInfo['stamp'] + '.csv')
+with open(dataFile, 'w', newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(['subject','condition','lists','wrds_wrong','wrds_corr','percent_cor'])
 
 
-
-
-###############
-#### BEGIN ####
-###############
+######################
+#### ROOT WINDOW  ####
+######################
 # Initialize root window
 root = tk.Tk()
 root.title("Speech Task Controller")
@@ -232,74 +202,68 @@ def confirm_exit():
 # create a menubar
 menubar = Menu(root)
 root.config(menu=menubar)
-
 # create the File menu
 file_menu = Menu(menubar, tearoff=False)
-
 # add menu items to the File menu
 file_menu.add_command(
     label='New Session'
     #command=startup_win
 )
-
 file_menu.add_separator()
 
 file_menu.add_command(
     label='Exit',
     command=confirm_exit
 )
-
 # add the File menu to the menubar
 menubar.add_cascade(
     label="File",
     menu=file_menu
 )
-
 # create the help menu
 help_menu = Menu(
     menubar,
     tearoff=0
 )
-
 # add items to the Help menu
 help_menu.add_command(label='Welcome')
 help_menu.add_command(label='About...')
-
 # add the Help menu to the menubar
 menubar.add_cascade(
     label="Help",
     menu=help_menu
 )
 
+# Set widget display options
 myFont = font.nametofont('TkDefaultFont').configure(size=10)
-
 options = {'padx':10, 'pady':10}
-options_word = {'padx':0, 'pady':0}
+#options_word = {'padx':0, 'pady':0}
 
 # Frames for widget positioning
 frmStatus = ttk.Frame(root)
 frmStatus.grid(column=0, columnspan=2, row=0, **options)
 
-frmSentence = ttk.LabelFrame(root, text='Sentence:', width=300)
-frmSentence.grid(column=0, row=1, sticky='nsew', **options)
-#frmSentence.grid_propagate(0)
+frmSentence = ttk.LabelFrame(root, text='Sentence:', width=450, height=60)
+frmSentence.grid(column=0, columnspan=2, row=1, sticky='nsew', **options)
+frmSentence.grid_propagate(0)
 
 frmBtn = ttk.Frame(root)
-frmBtn.grid(column=1, row=1, sticky="se", **options)
+#frmBtn.grid(column=1, row=1, sticky="se", **options)
+frmBtn.grid(column=0, row=2, sticky="sw", **options)
 
 frmScore = ttk.Frame(root)
-frmScore.grid(column=0, columnspan=2, row=2, sticky="W")
+frmScore.grid(column=1, columnspan=1, row=2, sticky="e")
 
 sep = ttk.Separator(root, orient='vertical')
 sep.grid(column=2, row=0, rowspan=12, sticky='ns')
 
 frmParams = ttk.LabelFrame(root, text="Parameters")
-frmParams.grid(column=3, row=0, rowspan=2, sticky='ne',**options)
+frmParams.grid(column=3, row=0, rowspan=2, sticky='n',**options)
 
 frmTrials = ttk.Frame(root)
-frmTrials.grid(column=3, row=2, sticky='E',  **options)
+frmTrials.grid(column=3, row=2, sticky='w',  **options)
 
-
+# Display parameters in parameter frame
 keys = list(expInfo.keys())
 for idx, param in enumerate(expInfo):
     if param == 'stamp':
@@ -308,16 +272,21 @@ for idx, param in enumerate(expInfo):
         lblLabel = ttk.Label(frmParams, text=keys[idx].capitalize() + ': ' + str(expInfo[param]))
         lblLabel.grid(column=0, row=idx, sticky='w')
 
-
+# Display trial number
 lblTrial = ttk.Label(frmTrials, text='Trial 0 of 0')
 lblTrial.grid(column=0, row=0)
 
+# Display presentation status
 status = tk.StringVar()
 status.set("Ready")
 lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=1, relief="groove")
 lblStatus.config(font=('TkDefaultFont', 14))
 lblStatus.grid(column=0, row=0, sticky="n", ipadx=5, ipady=5)
 
+score_text = tk.StringVar()
+lblScore = ttk.Label(frmScore, textvariable=score_text, font=myFont) # padding=10
+lblScore.grid(column=0, row=0, sticky="e", **options)
+score_text.set('No data!')
 
 # Words
 # Process current sentence for presentation
@@ -330,52 +299,13 @@ global chkbox_dict
 global theWords
 global aCheckButton
 
-"""
-theText = ''.join(sentences_list[list_counter]) # ['the dog is fast']
-words = theText.split() # ['the' 'dog' 'is' 'fast']
-nums = np.arange(0,len(words)) # index to ensure each word is a unique key
-nums = [str(x) for x in nums] # turn into strings
-# Append nums to words to ensure each word is a unique dict key
-newWords = []
-for i, word in enumerate(words):
-    word = word + str(i)
-    newWords.append(word)
-# Prepopulate checkboxes to "off"
-vals = np.zeros(len(words),dtype=int)
-chkbox_dict = dict(zip(newWords,vals))
-# Instantiate and display words and checkboxes
-global list_of_lbls
-global list_of_chkboxes
-list_of_chkboxes = [] # Store boxes in list
-list_of_lbls = [] # Store word labels in list
-for counter, key in enumerate(chkbox_dict,start=0):
-    chkbox_dict[key] = tk.IntVar()
-    if key.isupper() and key != 'A':
-        theWords = ttk.Label(frmSentence,text=newWords[counter][:-1])
-        theWords.config(font=('TkDefaultFont 10 underline'))
-        theWords.grid(column=counter,row=0)
-        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
-        aCheckButton.grid(column=counter,row=1)
-        list_of_chkboxes.append(aCheckButton)
-        list_of_lbls.append(theWords)
-    else:
-        aCheckButton = ttk.Checkbutton(frmSentence,text='',takefocus=0,variable=chkbox_dict[key])
-        #aCheckButton.grid(column=counter,row=4) # Do not display these checkboxes
-        theWords = ttk.Label(frmSentence,text=newWords[counter][:-1]).grid(column=counter,row=0)
-        list_of_chkboxes.append(aCheckButton)
-        list_of_lbls.append(theWords)
-"""
-
 global cor_count
 cor_count = 0
-
 global incor_count
 incor_count = 0
 
 
-
 def play_audio():
-
     ###### AUDIO
     audio_path = ('.\\audio\\IEEE\\')
     myFile = fileList[list_counter]
@@ -387,7 +317,6 @@ def play_audio():
     sigdur = len(myTarget) / fs
     sd.wait(sigdur)
     sd.play(myTarget,fs)
-
 
 
 theScores = []
@@ -410,7 +339,6 @@ def score():
 
     # Try scoring if there has been a response
     try:
-        print(chkbox_dict)
         theScores = []
         words_cor = []
         words_incor = []
@@ -427,7 +355,6 @@ def score():
                     theScores.append(0)
                     words_incor.append(key[:-1])
                     chkbox_dict[key].set(0)
-
 
         # Mark correct or incorrect
         # Criterion: all keywords must have been correctly identified
@@ -500,42 +427,31 @@ def score():
 
 
     #btnNext.config(state='disabled')
-    status.set("Presenting...")
+    #status.set("Presenting...")
 
     #print("waiting...")
     #btnNext.wait_variable(wait_var)
     #print("done waiting")
 
-    # AUDIO WENT HERE
+
     play_audio()
 
 
-
-    #dataFile.write('subject,condition,lists,wrds_wrong,wrds_corr,pc\n')
-
-
-    if len(words_cor) + len(words_incor) != 0:
+    try:
         with open(dataFile, 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
-                            str(expInfo['lists']),str(words_incor), str(words_cor), str(percent_cor)])
-        btnNext.config(state='enabled')
-        status.set("Ready")
-
-        
-
-
-score_text = tk.StringVar()
-lblScore = ttk.Label(frmScore, textvariable=score_text, font=myFont) # padding=10
-lblScore.grid(column=0, row=0, sticky="W", **options)
-score_text.set('No data!')
+                            str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
+        #btnNext.config(state='enabled')
+        #status.set("Ready")
+    except:
+        pass
 
 
 # Button
 wait_var = tk.IntVar()
 btnNext = ttk.Button(frmBtn, text="Next", command=lambda: [score(), wait_var.set(1)])
-btnNext.grid(column=0, row=0, sticky="N")
-
+btnNext.grid(column=0, row=0, sticky="w")
 
 #def enable_btn():
 #    btnNext.config(state='enabled')
@@ -561,7 +477,4 @@ root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 root.resizable(False, False)
 root.deiconify()
 
-
-
 root.mainloop()
-
