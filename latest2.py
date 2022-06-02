@@ -1,10 +1,13 @@
 # tk inter imports
+import imghdr
 from textwrap import fill
 import tkinter as tk
-from tkinter import ttk
+from tkinter import Toplevel, ttk
 from tkinter import font
 from tkinter import Menu
 from tkinter.messagebox import askyesno
+from tkinter.messagebox import showinfo
+from tkinter.messagebox import showwarning
 # system type imports
 import os
 import sys
@@ -13,6 +16,8 @@ from datetime import datetime
 # data science imports
 import numpy as np
 import pandas as pd
+from pandastable import Table, TableModel
+from pyparsing import col
 # audio imports
 from scipy.io import wavfile
 import sounddevice as sd
@@ -42,16 +47,18 @@ else:
     else:
         print("Problem creating data folder.")
 
-
 # Look for previous parameters file
 try:
     df = pd.read_csv('lastParams.csv',
         header=None, index_col=0)
     expInfo = df.to_dict()
-    expInfo = expInfo[1] # to_dict returns a list
+    expInfo = expInfo[1] # to_dict returns a list, so grab first one
+    # Set data types
+    expInfo['level'] = float(expInfo['level'])
+    expInfo['speaker'] = int(expInfo['speaker'])
 except:
     print('Using default dictionary')
-    expInfo = {'subject':'999', 'condition':'SPIN', 'speaker':3, 'level':65.0, 'lists':'1 2'}
+    expInfo = {'subject':'999', 'condition':'SPIN', 'speaker':int(1), 'level':float(65), 'lists':'1 2'}
 
 # Get current date/time
 now = datetime.now()
@@ -64,6 +71,25 @@ expInfo['stamp'] = now.strftime("%Y_%b_%d_%H%M")
 # Increment sentence/audio numbers
 global list_counter
 list_counter = 0
+# Score function globals
+global words
+global nums
+global newWords
+global vals
+global chkbox_dict
+global theWords
+global aCheckButton
+# Score tracking
+global cor_count
+cor_count = 0
+global incor_count
+incor_count = 0
+global img
+img = ".\\assets\\temp.ico"
+global REF_LEVEL
+REF_LEVEL = -20.0
+global SLM_Reading
+global STARTING_LEVEL
 
 
 #########################
@@ -73,6 +99,7 @@ list_counter = 0
 winStartParams = tk.Tk()
 winStartParams.title('Session Parameters')
 winStartParams.withdraw()
+#winStartParams.wm_iconbitmap(img)
 
 # Create startup parameters frames
 frmStartup = ttk.Frame(winStartParams)
@@ -154,6 +181,8 @@ df = pd.read_csv('lastParams.csv',
     header=None, index_col=0)
 expInfo = df.to_dict()
 expInfo = expInfo[1] # to_dict returns a list
+expInfo['level'] = float(expInfo['level'])
+expInfo['speaker'] = int(expInfo['speaker'])
 
 # Get lists of written sentences
 # based on values entered in startup
@@ -184,6 +213,144 @@ with open(dataFile, 'w', newline='') as f:
     writer.writerow(['subject','condition','lists','wrds_wrong','wrds_corr','percent_cor'])
 
 
+########################
+#### MENU FUNCTIONS ####
+########################
+def list_audio_devs():
+    """ Return a table with the available audio devices.
+    """
+    audDev_win = Toplevel(root)
+    audDev_win.title('Audio Device List')
+    #audDev_win.wm_iconbitmap(img)
+
+    deviceList = sd.query_devices()
+    names = [deviceList[x]['name'] for x in np.arange(0,len(deviceList))]
+    chans_in =  [deviceList[x]['max_input_channels'] for x in np.arange(0,len(deviceList))]
+    ids = np.arange(0,len(deviceList))
+    df = pd.DataFrame({"device_id": ids, "name": names,"chans_in": chans_in})
+
+    pt = Table(audDev_win,dataframe=df, showtoolbar=True, showstatusbar=True)
+    table = pt = Table(audDev_win, dataframe=df)
+    table.grid(column=0, row=0)
+    pt.show()
+
+    audDev_win.mainloop()
+
+
+def mnuCalibrate():
+    """ Calibration routine. Plays calibration file for speech 
+        test and creates a correction factor based off the 
+        entered SLM reading.
+    """
+    def playCalStim():
+        cal_file = ('.\\calibration\\IEEE_cal.wav')
+        #status.set(myFilePath[-7:])
+        [fs, myTarget] = wavfile.read(cal_file)
+        myTarget = ts.doNormalize(myTarget,48000)
+        myTarget = ts.setRMS(myTarget,REF_LEVEL,eq='n')
+        sigdur = len(myTarget) / fs
+        sd.wait(sigdur)
+        sd.play(myTarget,fs)
+
+
+    def doWriteCal():
+        global SLM_Reading
+        global STARTING_LEVEL
+        global SLM_OFFSET
+        SLM_Reading = entSLMinput.get()
+        print(SLM_Reading)
+        # make a text file to save data
+        dataFile = _thisDir + os.sep + 'etc' + os.sep + 'SLM_Reading.csv'
+        with open(dataFile, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([str(SLM_Reading)])
+
+        SLM_OFFSET = float(SLM_Reading) - float(REF_LEVEL)
+        STARTING_LEVEL = float(expInfo['level']) - float(SLM_OFFSET)
+        print("\n")
+        print("SLM OUTPUT: " + str(SLM_Reading))
+        print("-")
+        print("REF LEVEL: " + str(REF_LEVEL))
+        print("=")
+        print("SLM OFFSET: " + str(SLM_OFFSET))
+        print("\n")
+        print("Desired starting level: " + str(expInfo['level']))
+        print("-")
+        print("SLM OFFSET: " + str(SLM_OFFSET))
+        print("=")
+        print("STARTING LEVEL: " + str(STARTING_LEVEL))
+        print("\n")
+
+        cal_win.destroy()
+
+
+    # Create window
+    cal_win = Toplevel(root)
+    cal_win.withdraw()
+    cal_win.title('Calibration')
+
+    frame_options = {'padx':10, 'pady':10}
+    options = {'padx':5, 'pady':5}
+    
+    # Frames
+    frmLeft = ttk.Frame(cal_win)
+    frmLeft.grid(column=0, row=0, sticky='e', **frame_options)
+
+    frmRight = ttk.Frame(cal_win)
+    frmRight.grid(column=1, row=0, sticky='w', **frame_options)
+
+    frmBottom = ttk.Frame(cal_win)
+    frmBottom.grid(column=0, row=1, **frame_options)
+
+    # Widgets
+    lblStartCal = ttk.Label(frmLeft, text="Present Stimulus:")
+    lblStartCal.grid(column=0, row=0, sticky='e', **options)
+    btnStartCal = ttk.Button(frmRight,text="Play", command=playCalStim)
+    btnStartCal.grid(column=0, row=0, sticky='w', **options)
+    btnStartCal.focus()
+
+    lblSLMinput = ttk.Label(frmLeft, text="SLM Reading:")
+    lblSLMinput.grid(column=0,row=1, sticky='e', **options)
+    entSLMinput = ttk.Entry(frmRight)
+    entSLMinput.grid(column=0,row=1, sticky='w', **options)
+
+    btnSubmitCal = ttk.Button(frmBottom,text='Submit',command=doWriteCal)
+    btnSubmitCal.grid(column=0,row=0)
+
+    # Center root window based on new size
+    cal_win.update_idletasks()
+    window_width = cal_win.winfo_width()
+    window_height = cal_win.winfo_height()
+    screen_width = cal_win.winfo_screenwidth()
+    screen_height = cal_win.winfo_screenheight()
+    center_x = int(screen_width/2 - window_width / 2)
+    center_y = int(screen_height/2 - window_height / 2)
+    cal_win.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+    cal_win.resizable(False, False)
+    cal_win.deiconify()
+
+    cal_win.mainloop()
+
+
+##########################################
+#### READ CALIBRATION VALUE FROM FILE ####
+##########################################
+
+
+
+def mnuAbout2():
+    showinfo(
+        title='About Speech Task Controller',
+        message="Version: 1.0.0\nWritten by: Travis M. Moore\nCreated: 06/02/2022\nLast Updated: 06/02/2022")
+
+
+def mnuHelp():
+    showwarning(
+        title='Help',
+        message="Not yet available! Go find Travis! (Unless he's cranky...)"
+    )
+
+
 ######################
 #### ROOT WINDOW  ####
 ######################
@@ -191,6 +358,7 @@ with open(dataFile, 'w', newline='') as f:
 root = tk.Tk()
 root.title("Speech Task Controller")
 root.withdraw()
+#root.wm_iconbitmap(img)
 
 # Menu
 def confirm_exit():
@@ -205,10 +373,10 @@ root.config(menu=menubar)
 # create the File menu
 file_menu = Menu(menubar, tearoff=False)
 # add menu items to the File menu
-file_menu.add_command(
-    label='New Session'
-    #command=startup_win
-)
+# file_menu.add_command(
+#     label='New Session'
+#     #command=startup_win
+# )
 file_menu.add_separator()
 
 file_menu.add_command(
@@ -220,14 +388,36 @@ menubar.add_cascade(
     label="File",
     menu=file_menu
 )
+# Create Tools menu
+tools_menu = Menu(
+    menubar,
+    tearoff=0
+)
+# Add items to the Tools menu
+tools_menu.add_command(
+    label='Audio Devices',
+    command=list_audio_devs)
+tools_menu.add_command(
+    label='Calibrate',
+    command=mnuCalibrate)
+# Add Tools menu to the menubar
+menubar.add_cascade(
+    label="Tools",
+    menu=tools_menu
+)
 # create the help menu
 help_menu = Menu(
     menubar,
     tearoff=0
 )
 # add items to the Help menu
-help_menu.add_command(label='Welcome')
-help_menu.add_command(label='About...')
+help_menu.add_command(
+    label='Help',
+    command=mnuHelp)
+help_menu.add_command(
+    label='About',
+    command=mnuAbout2
+)
 # add the Help menu to the menubar
 menubar.add_cascade(
     label="Help",
@@ -281,39 +471,27 @@ status = tk.StringVar()
 status.set("Ready")
 lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=1, relief="groove")
 lblStatus.config(font=('TkDefaultFont', 14))
-lblStatus.grid(column=0, row=0, sticky="n", ipadx=5, ipady=5)
+#lblStatus.grid(column=0, row=0, sticky="n", ipadx=5, ipady=5)
 
 score_text = tk.StringVar()
 lblScore = ttk.Label(frmScore, textvariable=score_text, font=myFont) # padding=10
 lblScore.grid(column=0, row=0, sticky="e", **options)
-score_text.set('No data!')
+score_text.set('0 of 0 = 0.0% correct')
+
 
 # Words
 # Process current sentence for presentation
 # and scoring.
-global words
-global nums
-global newWords
-global vals
-global chkbox_dict
-global theWords
-global aCheckButton
-
-global cor_count
-cor_count = 0
-global incor_count
-incor_count = 0
-
-
 def play_audio():
-    ###### AUDIO
+    """ Presents current audio file.
+    """
     audio_path = ('.\\audio\\IEEE\\')
     myFile = fileList[list_counter]
     myFilePath = audio_path + myFile
     #status.set(myFilePath[-7:])
     [fs, myTarget] = wavfile.read(myFilePath)
     myTarget = ts.doNormalize(myTarget,48000)
-    myTarget = ts.setRMS(myTarget,-20,eq='n')
+    myTarget = ts.setRMS(myTarget,STARTING_LEVEL,eq='n')
     sigdur = len(myTarget) / fs
     sd.wait(sigdur)
     sd.play(myTarget,fs)
@@ -425,39 +603,22 @@ def score():
             #list_of_chkboxes.append(aCheckButton)
             list_of_lbls.append(theWords)
 
-
-    #btnNext.config(state='disabled')
-    #status.set("Presenting...")
-
-    #print("waiting...")
-    #btnNext.wait_variable(wait_var)
-    #print("done waiting")
-
-
+    # Present the current audio file
     play_audio()
-
 
     try:
         with open(dataFile, 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
                             str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
-        #btnNext.config(state='enabled')
-        #status.set("Ready")
     except:
         pass
 
 
 # Button
 wait_var = tk.IntVar()
-btnNext = ttk.Button(frmBtn, text="Next", command=lambda: [score(), wait_var.set(1)])
+btnNext = ttk.Button(frmBtn, text="Start", command=lambda: [score(), wait_var.set(1), btnNext.config(text="Next")])
 btnNext.grid(column=0, row=0, sticky="w")
-
-#def enable_btn():
-#    btnNext.config(state='enabled')
-#    status.set("Ready")
-#btnScore = ttk.Button(frmBtn, text="Score", command=wait_var.set(0))
-#btnScore.grid(column=0, row=1)
 
 # Center root based on new size
 root.update_idletasks()
@@ -476,5 +637,21 @@ center_y = int(screen_height/2 - window_height / 2)
 root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 root.resizable(False, False)
 root.deiconify()
+
+
+###########################
+#### CALIBRATION CHECK ####
+###########################
+try:
+    SLM_Reading = pd.read_csv('.\\etc\\SLM_Reading.csv')
+    SLM_Reading = float(SLM_Reading.columns[0])
+    SLM_OFFSET = float(SLM_Reading) - float(REF_LEVEL)
+    STARTING_LEVEL = float(expInfo['level']) - float(SLM_OFFSET)
+    if SLM_Reading < 0:
+        showwarning(title="Whoa!!", message="Invalid calibration value found! Please recalibrate before continuing!!")
+        mnuCalibrate()
+except:
+    showwarning(title="Whoa!!", message="No calibration value found! Please calibrate before continuing!!")
+    mnuCalibrate()
 
 root.mainloop()
