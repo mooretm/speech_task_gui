@@ -88,6 +88,7 @@ global REF_LEVEL
 REF_LEVEL = -20.0
 global SLM_Reading
 global STARTING_LEVEL
+global sndDevice
 
 
 #########################
@@ -216,9 +217,44 @@ with open(dataFile, 'w', newline='') as f:
 def list_audio_devs():
     """ Return a table with the available audio devices.
     """
+    global sndDevice
     audDev_win = Toplevel(root)
     audDev_win.title('Audio Device List')
+    audDev_win.withdraw()
     #audDev_win.wm_iconbitmap(img)
+
+    def doDevID():
+        try:
+            sndDevice = int(entDeviceID.get())
+            sd.default.device = sndDevice
+
+            # make a text file to save data
+            dataFile = _thisDir + os.sep + 'etc' + os.sep + 'Sound_Device.csv'
+            with open(dataFile, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([str(sndDevice)])
+
+            audDev_win.destroy()
+        except:
+            showwarning(title='Oops!', message="Not a valid selection!\nPlease select another device!")
+
+    options = {'padx':10, 'pady':10}
+    options_small = {'padx':5, 'pady':5}
+    frmID = ttk.Frame(audDev_win)
+    frmID.grid(column=0, row=0, **options)
+
+    frmTable = ttk.Frame(audDev_win)
+    frmTable.grid(column=0, row=1, **options)
+
+    lblInstr = ttk.Label(frmID, text="Enter the audio device ID:")
+    lblInstr.grid(column=0, row=0, sticky='e', **options_small)
+   
+    entDeviceID = ttk.Entry(frmID)
+    entDeviceID.grid(column=1, row=0, sticky='w', ** options_small)
+    entDeviceID.focus()
+
+    btnDeviceID = ttk.Button(frmID, text="Submit", command=doDevID)
+    btnDeviceID.grid(column=0, row=1, sticky='w', **options_small)
 
     deviceList = sd.query_devices()
     names = [deviceList[x]['name'] for x in np.arange(0,len(deviceList))]
@@ -226,10 +262,28 @@ def list_audio_devs():
     ids = np.arange(0,len(deviceList))
     df = pd.DataFrame({"device_id": ids, "name": names,"chans_in": chans_in})
 
-    pt = Table(audDev_win,dataframe=df, showtoolbar=True, showstatusbar=True)
-    table = pt = Table(audDev_win, dataframe=df)
+    pt = Table(frmTable,dataframe=df, showtoolbar=True, showstatusbar=True)
+    table = pt = Table(frmTable, dataframe=df)
     table.grid(column=0, row=0)
     pt.show()
+
+    # Center root based on new size
+    audDev_win.update_idletasks()
+    #root.attributes('-topmost',1)
+    window_width = audDev_win.winfo_width()
+    window_height = audDev_win.winfo_height()
+    #window_width = 600
+    #window_height=200
+    # get the screen dimension
+    screen_width = audDev_win.winfo_screenwidth()
+    screen_height = audDev_win.winfo_screenheight()
+    # find the center point
+    center_x = int(screen_width/2 - window_width / 2)
+    center_y = int(screen_height/2 - window_height / 2)
+    # set the position of the window to the center of the screen
+    audDev_win.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+    audDev_win.resizable(False, False)
+    audDev_win.deiconify()
 
     audDev_win.mainloop()
 
@@ -247,7 +301,7 @@ def mnuCalibrate():
         myTarget = ts.setRMS(myTarget,REF_LEVEL,eq='n')
         sigdur = len(myTarget) / fs
         sd.wait(sigdur)
-        sd.play(myTarget,fs)
+        sd.play(myTarget,fs,mapping=[int(expInfo['speaker'])])
 
 
     def doWriteCal():
@@ -421,19 +475,19 @@ options = {'padx':10, 'pady':10}
 #options_word = {'padx':0, 'pady':0}
 
 # Frames for widget positioning
-frmStatus = ttk.Frame(root)
-frmStatus.grid(column=0, columnspan=2, row=0, **options)
+#frmStatus = ttk.Frame(root)
+#frmStatus.grid(column=0, columnspan=2, row=0, **options)
 
 frmSentence = ttk.LabelFrame(root, text='Sentence:', width=450, height=60)
-frmSentence.grid(column=0, columnspan=2, row=1, sticky='nsew', **options)
+frmSentence.grid(column=0, columnspan=2, row=0, sticky='nsew', **options)
 frmSentence.grid_propagate(0)
 
 frmBtn = ttk.Frame(root)
 #frmBtn.grid(column=1, row=1, sticky="se", **options)
-frmBtn.grid(column=0, row=2, sticky="sw", **options)
+frmBtn.grid(column=0, row=1, sticky="sw", **options)
 
 frmScore = ttk.Frame(root)
-frmScore.grid(column=1, columnspan=1, row=2, sticky="e")
+frmScore.grid(column=1, row=2, sticky="e")
 
 sep = ttk.Separator(root, orient='vertical')
 sep.grid(column=2, row=0, rowspan=12, sticky='ns')
@@ -442,7 +496,7 @@ frmParams = ttk.LabelFrame(root, text="Parameters")
 frmParams.grid(column=3, row=0, rowspan=2, sticky='n',**options)
 
 frmTrials = ttk.Frame(root)
-frmTrials.grid(column=3, row=2, sticky='w',  **options)
+frmTrials.grid(column=0, row=2, sticky='w',  **options)
 
 # Display parameters in parameter frame
 keys = list(expInfo.keys())
@@ -458,10 +512,10 @@ lblTrial = ttk.Label(frmTrials, text='Trial 0 of 0')
 lblTrial.grid(column=0, row=0)
 
 # Display presentation status
-status = tk.StringVar()
-status.set("Ready")
-lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=1, relief="groove")
-lblStatus.config(font=('TkDefaultFont', 14))
+#status = tk.StringVar()
+#status.set("Ready")
+#lblStatus = ttk.Label(frmStatus, textvariable=status, anchor="center", width=10, borderwidth=1, relief="groove")
+#lblStatus.config(font=('TkDefaultFont', 14))
 #lblStatus.grid(column=0, row=0, sticky="n", ipadx=5, ipady=5)
 
 score_text = tk.StringVar()
@@ -483,7 +537,7 @@ def play_audio():
     myTarget = ts.setRMS(myTarget,STARTING_LEVEL,eq='n')
     sigdur = len(myTarget) / fs
     sd.wait(sigdur)
-    sd.play(myTarget,fs)
+    sd.play(myTarget,fs,mapping=[int(expInfo['speaker'])])
 
 
 theScores = []
@@ -503,6 +557,21 @@ def score():
     global aCheckButton
     global list_of_lbls
     global list_of_chkboxes
+
+    ############################
+    #### SOUND DEVICE CHECK ####
+    ############################
+    def device_check():
+        try:
+            sndDevice = pd.read_csv('.\\etc\\Sound_Device.csv')
+            sndDevice = int(sndDevice.columns[0])
+            sd.default.device = sndDevice
+        except:
+            showwarning(title="Whoa!!", message="No sound device selected!!\nPlease select and sound device before continuing!")
+            list_audio_devs()
+
+    # Check if a sound device has been selected
+    device_check()
 
     # Try scoring if there has been a response
     try:
