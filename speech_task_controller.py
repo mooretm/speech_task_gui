@@ -33,6 +33,18 @@ importlib.reload(ts) # Reload custom module on every run
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
 
+# Check for existing etc  folder
+if os.path.isdir(_thisDir + os.sep + 'etc' + os.sep):
+    print("Found etc folder.")
+else:
+    print("No etc folder found; creating one.")
+    os.mkdir(_thisDir + os.sep + 'etc' + os.sep)
+    isdir = os.path.isdir(_thisDir + os.sep + 'etc' + os.sep)
+    if isdir:
+        print("Etc folder created successfully.")
+    else:
+        print("Problem creating etc folder.")
+
 # Check for existing data folder
 if os.path.isdir(_thisDir + os.sep + 'data' + os.sep):
     print("Found data folder.")
@@ -47,7 +59,7 @@ else:
 
 # Look for previous parameters file
 try:
-    df = pd.read_csv('lastParams.csv',
+    df = pd.read_csv('.\\etc\\lastParams.csv',
         header=None, index_col=0)
     expInfo = df.to_dict()
     expInfo = expInfo[1] # to_dict returns a list, so grab first one
@@ -133,7 +145,7 @@ def startup_params():
     """ Collect param values and write to file.
     """
     keys = list(expInfo.keys())
-    with open('lastParams.csv', 'w', newline='') as f:
+    with open('.\\etc\\lastParams.csv', 'w', newline='') as f:
         for idx, entry in enumerate(entries):
             #print(entry.get())
             writer = csv.writer(f)
@@ -175,7 +187,7 @@ winStartParams.mainloop()
 #######################################
 # Reread expInfo to get updated values 
 # entered in startup window
-df = pd.read_csv('lastParams.csv',
+df = pd.read_csv('.\\etc\\lastParams.csv',
     header=None, index_col=0)
 expInfo = df.to_dict()
 expInfo = expInfo[1] # to_dict returns a list
@@ -567,11 +579,14 @@ def score():
             sndDevice = int(sndDevice.columns[0])
             sd.default.device = sndDevice
         except:
-            showwarning(title="Whoa!!", message="No sound device selected!!\nPlease select and sound device before continuing!")
+            showwarning(title="Whoa!!", message="No sound device selected!!\nPlease select a sound device before continuing!")
             list_audio_devs()
 
     # Check if a sound device has been selected
     device_check()
+
+    # Check whether a calibration value exists
+    cal_check()
 
     # Try scoring if there has been a response
     try:
@@ -707,16 +722,17 @@ root.deiconify()
 ###########################
 #### CALIBRATION CHECK ####
 ###########################
-try:
-    SLM_Reading = pd.read_csv('.\\etc\\SLM_Reading.csv')
-    SLM_Reading = float(SLM_Reading.columns[0])
-    SLM_OFFSET = float(SLM_Reading) - float(REF_LEVEL)
-    STARTING_LEVEL = float(expInfo['level']) - float(SLM_OFFSET)
-    if SLM_Reading < 0:
-        showwarning(title="Whoa!!", message="Invalid calibration value found! Please recalibrate before continuing!!")
+def cal_check():
+    try:
+        SLM_Reading = pd.read_csv('.\\etc\\SLM_Reading.csv')
+        SLM_Reading = float(SLM_Reading.columns[0])
+        SLM_OFFSET = float(SLM_Reading) - float(REF_LEVEL)
+        STARTING_LEVEL = float(expInfo['level']) - float(SLM_OFFSET)
+        if SLM_Reading < 0:
+            showwarning(title="Whoa!!", message="Invalid calibration value found! Please recalibrate before continuing!!")
+            mnuCalibrate()
+    except:
+        showwarning(title="Whoa!!", message="No calibration value found! Please calibrate before continuing!!")
         mnuCalibrate()
-except:
-    showwarning(title="Whoa!!", message="No calibration value found! Please calibrate before continuing!!")
-    mnuCalibrate()
 
 root.mainloop()
