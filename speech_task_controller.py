@@ -33,7 +33,7 @@ importlib.reload(ts) # Reload custom module on every run
 _thisDir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(_thisDir)
 
-# Check for existing etc  folder
+# Check for existing etc folder
 if os.path.isdir(_thisDir + os.sep + 'etc' + os.sep):
     print("Found etc folder.")
 else:
@@ -66,9 +66,10 @@ try:
     # Set data types
     expInfo['level'] = float(expInfo['level'])
     expInfo['speaker'] = int(expInfo['speaker'])
+    print("Loaded previous parameters from file")
 except:
+    expInfo = {'subject':'999', 'condition':'quiet', 'speaker':int(1), 'level':float(65), 'lists':'5'}
     print('Using default dictionary')
-    expInfo = {'subject':'999', 'condition':'SPIN', 'speaker':int(1), 'level':float(65), 'lists':'1 2'}
 
 # Get current date/time
 now = datetime.now()
@@ -94,8 +95,8 @@ global cor_count
 cor_count = 0
 global incor_count
 incor_count = 0
-global img
-img = ".\\assets\\temp.ico"
+#global img
+#img = ".\\assets\\temp.ico"
 global REF_LEVEL
 REF_LEVEL = -20.0
 global SLM_Reading
@@ -131,9 +132,11 @@ for idx, key in enumerate(expInfo):
     # Labels
     ttk.Label(frmStartup,text=str(key).capitalize() + ': ').grid(column=0,row=idx,sticky='E')
     # Entry boxes
-    text = str(expInfo[key])
+    text = tk.StringVar()
     myEntry = ttk.Entry(frmStartup,textvariable=text)
+    text = str(expInfo[key])
     myEntry.insert(0,text)
+    #print(myEntry.get())
     if key == 'stamp':
         myEntry.config(state = 'disabled')
     myEntry.grid(column=1,row=idx,sticky='W')
@@ -220,7 +223,7 @@ fileList = fileList[sentence_nums]
 dataFile = _thisDir + os.sep + 'data' + os.sep + '%s_%s_%s' % (expInfo['subject'], expInfo['condition'], expInfo['stamp'] + '.csv')
 with open(dataFile, 'w', newline='') as f:
     writer = csv.writer(f)
-    writer.writerow(['subject','condition','lists','wrds_wrong','wrds_corr','percent_cor'])
+    writer.writerow(['subject','condition','lists','wrds_wrong','wrds_corr','num_words_corr','percent_cor','slm_cal_reading','raw_level','slm_offset','new_raw_lvl','new_db_lvl'])
 
 
 ########################
@@ -540,6 +543,8 @@ score_text.set('0 of 0 = 0.0% correct')
 def play_audio():
     """ Presents current audio file.
     """
+    global STARTING_LEVEL
+    cal_check()
     audio_path = ('.\\audio\\IEEE\\')
     myFile = fileList[list_counter]
     myFilePath = audio_path + myFile
@@ -569,6 +574,9 @@ def score():
     global aCheckButton
     global list_of_lbls
     global list_of_chkboxes
+    global SLM_OFFSET
+    global SLM_Reading
+    global STARTING_LEVEL
 
     ############################
     #### SOUND DEVICE CHECK ####
@@ -606,6 +614,14 @@ def score():
                     theScores.append(0)
                     words_incor.append(key[:-1])
                     chkbox_dict[key].set(0)
+
+        cor_vals = [
+            x
+            for x in theScores
+            if x == 1
+        ]
+
+        num_corr = len(cor_vals)
 
         # Mark correct or incorrect
         # Criterion: all keywords must have been correctly identified
@@ -645,9 +661,14 @@ def score():
     if list_counter > len(sentences)-1:
         with open(dataFile, 'a', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
-                str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
-        showinfo(title='All done!', message="Task complete!\nFinal score: " + str(percent_cor) + "%")
+            writer.writerow([str(expInfo['subject']), 
+                str(expInfo['condition']), str(expInfo['lists']),
+                str(words_incor), str(words_cor), str(num_corr),
+                str(round(percent_cor,2)), str(SLM_Reading), 
+                str(REF_LEVEL), str(SLM_OFFSET), str(STARTING_LEVEL),
+                str(SLM_OFFSET+STARTING_LEVEL)])
+        showinfo(title='All done!', 
+            message="Task complete!\nFinal score: " + str(percent_cor) + "%")
         quit()
 
     theText = ''.join(sentences.iloc[list_counter]) # using pandas, ['the dog is fast']
@@ -690,8 +711,14 @@ def score():
     try:
         with open(dataFile, 'a', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
-                            str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
+            #writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
+            #                str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
+            writer.writerow([str(expInfo['subject']), 
+                str(expInfo['condition']), str(expInfo['lists']),
+                str(words_incor), str(words_cor), str(num_corr),
+                str(round(percent_cor,2)), str(SLM_Reading), 
+                str(REF_LEVEL), str(SLM_OFFSET), str(STARTING_LEVEL),
+                str(SLM_OFFSET+STARTING_LEVEL)])
     except:
         pass
 
@@ -723,6 +750,9 @@ root.deiconify()
 #### CALIBRATION CHECK ####
 ###########################
 def cal_check():
+    global STARTING_LEVEL
+    global SLM_Reading
+    global SLM_OFFSET
     try:
         SLM_Reading = pd.read_csv('.\\etc\\SLM_Reading.csv')
         SLM_Reading = float(SLM_Reading.columns[0])
