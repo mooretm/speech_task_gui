@@ -588,23 +588,20 @@ def score():
     global SLM_Reading
     global STARTING_LEVEL
 
-    ############################
-    #### SOUND DEVICE CHECK ####
-    ############################
-    def device_check():
-        try:
-            sndDevice = pd.read_csv('.\\etc\\Sound_Device.csv')
-            sndDevice = int(sndDevice.columns[0])
-            sd.default.device = sndDevice
-        except:
-            showwarning(title="Whoa!!", message="No sound device selected!!\nPlease select a sound device before continuing!")
-            list_audio_devs()
 
-    # Check if a sound device has been selected
-    device_check()
 
-    # Check whether a calibration value exists
-    cal_check()
+
+
+
+
+
+
+
+    # # Check if a sound device has been selected
+    # device_check()
+
+    # # Check whether a calibration value exists
+    # cal_check()
 
     # Try scoring if there has been a response
     try:
@@ -738,6 +735,7 @@ def do_right():
     try:
         STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
     except:
+        device_check()
         cal_check()
         print(f'Original starting level: {STARTING_LEVEL}')
         STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
@@ -751,6 +749,7 @@ def do_wrong():
     try:
         STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
     except:
+        device_check()
         cal_check()
         print(f'Original starting level: {STARTING_LEVEL}')
         STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
@@ -797,6 +796,19 @@ center_y = int(screen_height/2 - window_height / 2)
 root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
 root.resizable(False, False)
 root.deiconify()
+
+
+############################
+#### SOUND DEVICE CHECK ####
+############################
+def device_check():
+    try:
+        sndDevice = pd.read_csv('.\\etc\\Sound_Device.csv')
+        sndDevice = int(sndDevice.columns[0])
+        sd.default.device = sndDevice
+    except:
+        showwarning(title="Whoa!!", message="No sound device selected!!\nPlease select a sound device before continuing!")
+        list_audio_devs()
 
 
 ###########################
