@@ -567,7 +567,7 @@ def play_audio():
 
 
 theScores = []
-def score():
+def score(resp_val):
     # Process current sentence for presentation
     # and scoring.
     # Embarrassing list of globals...
@@ -632,6 +632,8 @@ def score():
         #print(theScores)
 
     except:
+        device_check()
+        cal_check() # do this here because it's as early as possible in a try: that fails on first run
         pass
 
     try:
@@ -698,7 +700,6 @@ def score():
 
     # Present the current audio file
     play_audio()
-    print(f'The STARTING_LEVEL after playing audio and before writing: {STARTING_LEVEL}')
 
     try:
         with open(dataFile, 'a', newline='') as f:
@@ -709,58 +710,39 @@ def score():
                 str(round(percent_cor,2)), str(SLM_Reading), 
                 str(REF_LEVEL), str(SLM_OFFSET), str(STARTING_LEVEL),
                 str(SLM_OFFSET+STARTING_LEVEL)])
+
+        # Update STARTING_LEVEL based on button click
+        if resp_val == "right":
+            print(f'Try: previous level: {STARTING_LEVEL}')
+            STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
+            print(f'Try: adjusted level: {STARTING_LEVEL}')
+        elif resp_val == "wrong":
+            print(f'Try: previous level: {STARTING_LEVEL}')
+            STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
+            print(f'Try: adjusted level: {STARTING_LEVEL}')
+        elif resp_val == "fixed":
+            pass
+
     except:
-        print("Nothing written to file!")
+        #print("Nothing written to file!")
+        print(f'Starting level: {STARTING_LEVEL}')
         pass
 
 
 def do_right():
     btn_wrong.config(state='enabled')
     btn_right.config(text="Right")
-    global STARTING_LEVEL
-    try:
-        print(f'Try: previous level: {STARTING_LEVEL}')
-        STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
-        print(f'Try: adjusted level: {STARTING_LEVEL}')
-    except:
-        device_check()
-        cal_check()
-        print(f'Except: starting level: {STARTING_LEVEL}')
-        # Don't want a change on the initial activation
-        #STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
-        print(f'Except: adjusted level: {STARTING_LEVEL}')
-    score()
+    score("right")
 
 
 def do_wrong():
-    global STARTING_LEVEL
-    try:
-        print(f'Try: previous level: {STARTING_LEVEL}')
-        STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
-        print(f'Try: adjusted level: {STARTING_LEVEL}')
-    except:
-        device_check()
-        cal_check()
-        print(f'Except: starting level: {STARTING_LEVEL}')
-        # Don't want a change on the initial activation
-        #STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
-        print(f'Except: adjusted level: {STARTING_LEVEL}')
-    score()
+    score("wrong")
 
 
 def do_fixed():
-    global STARTING_LEVEL
-    try:
-        print(f'Try: previous level: {STARTING_LEVEL}')
-        STARTING_LEVEL = STARTING_LEVEL
-        print(f'Try: adjusted level: {STARTING_LEVEL}')
-    except:
-        device_check()
-        cal_check()
-        print(f'Except: starting level: {STARTING_LEVEL}')
-        STARTING_LEVEL = STARTING_LEVEL
-        print(f'Except: adjusted level: {STARTING_LEVEL}')
-    score()
+    #wait_var.set(1)
+    btnNext.config(text="Next")
+    score("fixed")
 
 
 # Buttons
@@ -782,7 +764,7 @@ lbl_step.grid(column=1, row=0)
 
 # Fixed task buttons
 wait_var = tk.IntVar()
-btnNext = ttk.Button(frmBtn, text="Start", command=lambda: [do_fixed, wait_var.set(1), btnNext.config(text="Next")])
+btnNext = ttk.Button(frmBtn, text="Start", command=do_fixed)
 btnNext.grid(column=0, row=0, sticky="w")
 
 # Center root based on new size
