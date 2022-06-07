@@ -506,10 +506,10 @@ frmSentence.grid(column=0, columnspan=2, row=0, sticky='nsew', **options)
 frmSentence.grid_propagate(0)
 
 frmBtnAdapt = ttk.Frame(root)
-#frmBtnAdapt.grid(column=0, row=1, sticky="sw", **options)
+frmBtnAdapt.grid(column=0, row=1, sticky="sw", **options)
 
 frmBtn = ttk.Frame(root)
-frmBtn.grid(column=0, row=1, sticky="sw", **options)
+#frmBtn.grid(column=0, row=1, sticky="sw", **options)
 
 frmScore = ttk.Frame(root)
 frmScore.grid(column=1, row=2, sticky="e")
@@ -554,7 +554,6 @@ def play_audio():
     """ Presents current audio file.
     """
     global STARTING_LEVEL
-    cal_check()
     audio_path = ('.\\audio\\IEEE\\')
     myFile = fileList[list_counter]
     myFilePath = audio_path + myFile
@@ -588,21 +587,6 @@ def score():
     global SLM_Reading
     global STARTING_LEVEL
 
-
-
-
-
-
-
-
-
-
-    # # Check if a sound device has been selected
-    # device_check()
-
-    # # Check whether a calibration value exists
-    # cal_check()
-
     # Try scoring if there has been a response
     try:
         theScores = []
@@ -611,13 +595,13 @@ def score():
         for key, value in chkbox_dict.items():
             state = value.get()
             if state != 0:
-                print('Correct! ' + key[:-1])
+                #print('Correct! ' + key[:-1])
                 theScores.append(1)
                 words_cor.append(key[:-1])
                 chkbox_dict[key].set(0)
             else:
                 if key.isupper() and key[:-1] != 'A':
-                    print('Wrong! ' + key[:-1])
+                    #print('Wrong! ' + key[:-1])
                     theScores.append(0)
                     words_incor.append(key[:-1])
                     chkbox_dict[key].set(0)
@@ -645,7 +629,7 @@ def score():
 
         score_text.set(f'{cor_count} of {total_count} = {round(percent_cor,1)}% correct')
         lblTrial.config(text=f'Trial {total_count} of {len(fileList)}')
-        print(theScores)
+        #print(theScores)
 
     except:
         pass
@@ -714,12 +698,11 @@ def score():
 
     # Present the current audio file
     play_audio()
+    print(f'The STARTING_LEVEL after playing audio and before writing: {STARTING_LEVEL}')
 
     try:
         with open(dataFile, 'a', newline='') as f:
             writer = csv.writer(f)
-            #writer.writerow([str(expInfo['subject']),str(expInfo['condition']), 
-            #                str(expInfo['lists']),str(words_incor), str(words_cor), str(round(percent_cor,2))])
             writer.writerow([str(expInfo['subject']), 
                 str(expInfo['condition']), str(expInfo['lists']),
                 str(words_incor), str(words_cor), str(num_corr),
@@ -727,41 +710,64 @@ def score():
                 str(REF_LEVEL), str(SLM_OFFSET), str(STARTING_LEVEL),
                 str(SLM_OFFSET+STARTING_LEVEL)])
     except:
+        print("Nothing written to file!")
         pass
 
 
 def do_right():
+    btn_wrong.config(state='enabled')
+    btn_right.config(text="Right")
     global STARTING_LEVEL
     try:
+        print(f'Try: previous level: {STARTING_LEVEL}')
         STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
+        print(f'Try: adjusted level: {STARTING_LEVEL}')
     except:
         device_check()
         cal_check()
-        print(f'Original starting level: {STARTING_LEVEL}')
-        STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
-    print(f'Value from text box: {ent_right.get()}')
-    print(f'New raw level is: {STARTING_LEVEL}')
+        print(f'Except: starting level: {STARTING_LEVEL}')
+        # Don't want a change on the initial activation
+        #STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
+        print(f'Except: adjusted level: {STARTING_LEVEL}')
     score()
 
 
 def do_wrong():
     global STARTING_LEVEL
     try:
+        print(f'Try: previous level: {STARTING_LEVEL}')
         STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
+        print(f'Try: adjusted level: {STARTING_LEVEL}')
     except:
         device_check()
         cal_check()
-        print(f'Original starting level: {STARTING_LEVEL}')
-        STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
-    print(f'Value from text box: {ent_wrong.get()}')
-    print(f'New raw level is: {STARTING_LEVEL}')
+        print(f'Except: starting level: {STARTING_LEVEL}')
+        # Don't want a change on the initial activation
+        #STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
+        print(f'Except: adjusted level: {STARTING_LEVEL}')
     score()
+
+
+def do_fixed():
+    global STARTING_LEVEL
+    try:
+        print(f'Try: previous level: {STARTING_LEVEL}')
+        STARTING_LEVEL = STARTING_LEVEL
+        print(f'Try: adjusted level: {STARTING_LEVEL}')
+    except:
+        device_check()
+        cal_check()
+        print(f'Except: starting level: {STARTING_LEVEL}')
+        STARTING_LEVEL = STARTING_LEVEL
+        print(f'Except: adjusted level: {STARTING_LEVEL}')
+    score()
+
 
 # Buttons
 # Adaptive task buttons
-btn_right = ttk.Button(frmBtnAdapt, text="Right", command=do_right)
+btn_right = ttk.Button(frmBtnAdapt, text="Start", command=do_right)
 btn_right.grid(column=0, row=1)
-btn_wrong = ttk.Button(frmBtnAdapt, text="Wrong", command=do_wrong)
+btn_wrong = ttk.Button(frmBtnAdapt, text="Wrong", state='disabled', command=do_wrong)
 btn_wrong.grid(column=0, row=2)
 
 ent_right = ttk.Entry(frmBtnAdapt, width=5)
@@ -776,7 +782,7 @@ lbl_step.grid(column=1, row=0)
 
 # Fixed task buttons
 wait_var = tk.IntVar()
-btnNext = ttk.Button(frmBtn, text="Start", command=lambda: [score(), wait_var.set(1), btnNext.config(text="Next")])
+btnNext = ttk.Button(frmBtn, text="Start", command=lambda: [do_fixed, wait_var.set(1), btnNext.config(text="Next")])
 btnNext.grid(column=0, row=0, sticky="w")
 
 # Center root based on new size
