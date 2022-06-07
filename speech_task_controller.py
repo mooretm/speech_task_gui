@@ -14,8 +14,7 @@ from datetime import datetime
 # data science imports
 import numpy as np
 import pandas as pd
-from pandastable import Table, TableModel
-from pyparsing import col
+from pandastable import Table
 # audio imports
 from scipy.io import wavfile
 import sounddevice as sd
@@ -401,7 +400,7 @@ def mnuCalibrate():
 def mnuAbout2():
     showinfo(
         title='About Speech Task Controller',
-        message="Version: 1.0.0\nWritten by: Travis M. Moore\nCreated: 06/02/2022\nLast Updated: 06/02/2022")
+        message="Version: 1.1.0\nWritten by: Travis M. Moore\nCreated: 06/02/2022\nLast Updated: 06/07/2022")
 
 
 def mnuHelp():
@@ -440,11 +439,11 @@ file_menu = Menu(menubar, tearoff=False)
 file_menu.add_command(
     label="Adaptive",
     #command=lambda: frmBtnAdapt.tkraise()
-    command=lambda: [frmBtn.grid_forget(), frmBtnAdapt.grid(column=0, row=1, sticky="sw", **options)]
+    command=lambda: [frmBtn.grid_forget(), frmBtnAdapt.grid(column=0, row=1, sticky="sw", **options), root.geometry("642x236")]
 )
 file_menu.add_command(
     label="Fixed",
-    command=lambda: [frmBtnAdapt.grid_forget(), frmBtn.grid(column=0, row=1, sticky="sw", **options)]
+    command=lambda: [frmBtnAdapt.grid_forget(), frmBtn.grid(column=0, row=1, sticky="sw", **options), root.geometry("642x186")]
 )
 file_menu.add_separator()
 file_menu.add_command(
@@ -501,8 +500,8 @@ options = {'padx':10, 'pady':10}
 #frmStatus = ttk.Frame(root)
 #frmStatus.grid(column=0, columnspan=2, row=0, **options)
 
-frmSentence = ttk.LabelFrame(root, text='Sentence:', width=450, height=60)
-frmSentence.grid(column=0, columnspan=2, row=0, sticky='nsew', **options)
+frmSentence = ttk.LabelFrame(root, text='Sentence:', width=500, height=60)
+frmSentence.grid(column=0, columnspan=2, row=0, sticky='nsew', **options, ipady=10)
 frmSentence.grid_propagate(0)
 
 frmBtnAdapt = ttk.Frame(root)
@@ -766,6 +765,7 @@ lbl_step.grid(column=1, row=0)
 wait_var = tk.IntVar()
 btnNext = ttk.Button(frmBtn, text="Start", command=do_fixed)
 btnNext.grid(column=0, row=0, sticky="w")
+
 
 # Center root based on new size
 root.update_idletasks()
