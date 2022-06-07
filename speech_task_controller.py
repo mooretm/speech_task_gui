@@ -407,7 +407,7 @@ def mnuAbout2():
 def mnuHelp():
     showwarning(
         title='Help',
-        message="Not yet available! Go find Travis! (Unless he's cranky...)"
+        message="Not yet available!\nGo find Travis! (Unless he's cranky...)"
     )
 
 
@@ -437,8 +437,16 @@ file_menu = Menu(menubar, tearoff=False)
 #     label='New Session'
 #     #command=startup_win
 # )
+file_menu.add_command(
+    label="Adaptive",
+    #command=lambda: frmBtnAdapt.tkraise()
+    command=lambda: [frmBtn.grid_forget(), frmBtnAdapt.grid(column=0, row=1, sticky="sw", **options)]
+)
+file_menu.add_command(
+    label="Fixed",
+    command=lambda: [frmBtnAdapt.grid_forget(), frmBtn.grid(column=0, row=1, sticky="sw", **options)]
+)
 file_menu.add_separator()
-
 file_menu.add_command(
     label='Exit',
     command=confirm_exit
@@ -497,8 +505,10 @@ frmSentence = ttk.LabelFrame(root, text='Sentence:', width=450, height=60)
 frmSentence.grid(column=0, columnspan=2, row=0, sticky='nsew', **options)
 frmSentence.grid_propagate(0)
 
+frmBtnAdapt = ttk.Frame(root)
+#frmBtnAdapt.grid(column=0, row=1, sticky="sw", **options)
+
 frmBtn = ttk.Frame(root)
-#frmBtn.grid(column=1, row=1, sticky="se", **options)
 frmBtn.grid(column=0, row=1, sticky="sw", **options)
 
 frmScore = ttk.Frame(root)
@@ -609,7 +619,7 @@ def score():
                 words_cor.append(key[:-1])
                 chkbox_dict[key].set(0)
             else:
-                if key.isupper() and key != 'A':
+                if key.isupper() and key[:-1] != 'A':
                     print('Wrong! ' + key[:-1])
                     theScores.append(0)
                     words_incor.append(key[:-1])
@@ -722,7 +732,50 @@ def score():
     except:
         pass
 
-# Button
+
+def do_right():
+    global STARTING_LEVEL
+    try:
+        STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
+    except:
+        cal_check()
+        print(f'Original starting level: {STARTING_LEVEL}')
+        STARTING_LEVEL = float(STARTING_LEVEL) - float(ent_right.get())
+    print(f'Value from text box: {ent_right.get()}')
+    print(f'New raw level is: {STARTING_LEVEL}')
+    score()
+
+
+def do_wrong():
+    global STARTING_LEVEL
+    try:
+        STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
+    except:
+        cal_check()
+        print(f'Original starting level: {STARTING_LEVEL}')
+        STARTING_LEVEL = float(STARTING_LEVEL) + float(ent_wrong.get())
+    print(f'Value from text box: {ent_wrong.get()}')
+    print(f'New raw level is: {STARTING_LEVEL}')
+    score()
+
+# Buttons
+# Adaptive task buttons
+btn_right = ttk.Button(frmBtnAdapt, text="Right", command=do_right)
+btn_right.grid(column=0, row=1)
+btn_wrong = ttk.Button(frmBtnAdapt, text="Wrong", command=do_wrong)
+btn_wrong.grid(column=0, row=2)
+
+ent_right = ttk.Entry(frmBtnAdapt, width=5)
+ent_right.grid(column=1,row=1)
+ent_right.insert(0,str(10))
+ent_wrong = ttk.Entry(frmBtnAdapt, width=5)
+ent_wrong.grid(column=1,row=2)
+ent_wrong.insert(0,str(5))
+
+lbl_step = ttk.Label(frmBtnAdapt, text="Step Size")
+lbl_step.grid(column=1, row=0)
+
+# Fixed task buttons
 wait_var = tk.IntVar()
 btnNext = ttk.Button(frmBtn, text="Start", command=lambda: [score(), wait_var.set(1), btnNext.config(text="Next")])
 btnNext.grid(column=0, row=0, sticky="w")
